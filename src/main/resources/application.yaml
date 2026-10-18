@@ -1,0 +1,77 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: ms-andesstay-notify
+
+  # Con el cluster de infra/mq: RABBITMQ_ADDRESSES=localhost:5672,localhost:5673
+  rabbitmq:
+    addresses: ${RABBITMQ_ADDRESSES:localhost:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    connection-timeout: 3s
+    listener:
+      simple:
+        # ACK manual: el listener decide basicAck / basicNack explicitamente
+        acknowledge-mode: manual
+        # Cuantos mensajes sin ACK puede tener cada consumidor a la vez
+        prefetch: ${NOTIFY_PREFETCH:5}
+        concurrency: 1
+        max-concurrency: 3
+        # Nunca devolver a la cola un mensaje rechazado por excepcion (evita loops infinitos)
+        default-requeue-rejected: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+andesstay:
+  messaging:
+    dlq-retention: ${ANDESSTAY_DLQ_RETENTION:7d}
+    exchanges:
+      direct: cmd.direct
+      topic: cmd.topic
+      dead-letter: cmd.dead.dlx
+    routes:
+      email:
+        queue: q.cmd.email
+        dlq: q.cmd.email.dlq
+        direct-key: email.send
+        topic-pattern: "email.*"
+        dead-key: email.dead
+      housekeeping:
+        queue: q.cmd.housekeeping
+        dlq: q.cmd.housekeeping.dlq
+        direct-key: housekeeping.ticket
+        topic-pattern: "housekeeping.#"
+        dead-key: housekeeping.dead
+      voucher:
+        queue: q.cmd.voucher
+        dlq: q.cmd.voucher.dlq
+        direct-key: voucher.gen
+        topic-pattern: "voucher.*"
+        dead-key: voucher.dead
+
+  notify:
+    retry:
+      # Intentos totales (1 original + 2 reintentos). Al fallar el ultimo -> DLQ
+      max-attempts: ${NOTIFY_MAX_ATTEMPTS:3}
+      # Espera antes de republicar; se multiplica por el numero de intento (1s, 2s, ...)
+      backoff: ${NOTIFY_RETRY_BACKOFF:1s}
+    idempotency:
+      # Cuantos eventId procesados se recuerdan (registro en memoria, LRU)
+      max-entries: 10000
+    simulation:
+      # Permite simular fallos con payload.simulateFailure (ver README)
+      enabled: ${NOTIFY_SIMULATION_ENABLED:true}
+    dead-letter:
+      # false: los mensajes quedan en las DLQ (visibles en la Management UI como evidencia)
+      # true:  el listener de deadletter los loguea (x-death) y los saca de la DLQ
+      auto-startup: ${NOTIFY_DLQ_LISTENER:false}
