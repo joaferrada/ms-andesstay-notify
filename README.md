@@ -5,7 +5,7 @@ Consumidor RabbitMQ de AndesStay (puerto **8083**, sin base de datos). Procesa l
 ## Ejecutar
 
 ```powershell
-docker compose -f ..\infra\mq\compose.yml up -d
+docker compose -f ..\infra\compose.yml up -d rabbit1 rabbit2
 .\mvnw.cmd spring-boot:run
 # cluster: $env:RABBITMQ_ADDRESSES="localhost:5672,localhost:5673"
 ```
@@ -88,6 +88,18 @@ curl -X POST localhost:8084/api/admin/messages -H "Content-Type: application/jso
 Despues revisar `http://localhost:15672` > Queues: los mensajes rechazados quedan en `q.cmd.*.dlq` (el listener de DLQ esta apagado por defecto). En *Get messages* se ve el header `x-death` (reason `rejected`, cola de origen) y `x-retry-count`.
 
 Para procesar las DLQ: `NOTIFY_DLQ_LISTENER=true`, que loguea `[DLQ] x-death reason=... queue=...` y hace ACK.
+
+## Docker
+
+`Dockerfile` multi-stage: build con `maven:3.9-eclipse-temurin-17` y runtime `eclipse-temurin:17-jre` con usuario no root, puerto **8083** y `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75`. Se levanta junto al resto del backend con el compose unico de `infra` (ver su README):
+
+```powershell
+cd ..\infra
+docker compose up -d --build notify
+docker compose logs -f notify
+```
+
+En el compose usa RabbitMQ `rabbit1:5672,rabbit2:5672` y espera a que ambos nodos esten healthy. Healthcheck: `GET http://localhost:8083/actuator/health`.
 
 ## Tests
 
