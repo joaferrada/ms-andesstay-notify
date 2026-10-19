@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 
 /**
- * Envio de correos (simulado con logs). Campos obligatorios: payload.reservationId y payload.clienteUsername.
+ * Envio de correos (simulado con logs).
+ * Campos obligatorios: payload.reservationId y el destinatario: payload.huespedEmail
+ * (o payload.clienteUsername en mensajes antiguos, por compatibilidad).
  */
 @Service
 public class EmailSender {
@@ -31,7 +33,7 @@ public class EmailSender {
 
     public void send(EventEnvelope envelope, int attempt) {
         String reservationId = envelope.requirePayload("reservationId");
-        String destinatario = envelope.requirePayload("clienteUsername");
+        String destinatario = envelope.requireFirstPayload("huespedEmail", "clienteUsername");
         failureSimulator.apply(envelope, attempt);
 
         String asunto = ASUNTOS.getOrDefault(envelope.type(), "Notificacion AndesStay");

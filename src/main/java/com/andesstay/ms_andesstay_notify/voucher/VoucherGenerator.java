@@ -8,7 +8,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Generacion de vouchers y boletas en PDF (simulada con logs).
- * Campos obligatorios: payload.reservationId y payload.clienteUsername.
+ * Campos obligatorios: payload.reservationId y el titular: payload.huespedNombre o payload.huespedEmail
+ * (o payload.clienteUsername en mensajes antiguos, por compatibilidad).
  */
 @Service
 public class VoucherGenerator {
@@ -24,7 +25,7 @@ public class VoucherGenerator {
 
     public void generate(EventEnvelope envelope, int attempt) {
         String reservationId = envelope.requirePayload("reservationId");
-        String cliente = envelope.requirePayload("clienteUsername");
+        String cliente = envelope.requireFirstPayload("huespedNombre", "huespedEmail", "clienteUsername");
         failureSimulator.apply(envelope, attempt);
 
         String documento = TYPE_BOLETA.equals(envelope.type()) ? "boleta" : "voucher";

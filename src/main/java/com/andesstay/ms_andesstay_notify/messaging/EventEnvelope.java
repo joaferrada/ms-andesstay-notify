@@ -33,4 +33,18 @@ public record EventEnvelope(
         }
         return value;
     }
+
+    /**
+     * Exige el primero de varios campos alternativos (en orden de preferencia).
+     * Si no viene ninguno, el mensaje es no recuperable (va a la DLQ).
+     */
+    public String requireFirstPayload(String... fields) {
+        for (String field : fields) {
+            String value = payloadText(field);
+            if (value != null) {
+                return value;
+            }
+        }
+        throw new NonRecoverableMessageException("Campo obligatorio faltante: payload." + String.join(" o payload.", fields));
+    }
 }
